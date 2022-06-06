@@ -1,5 +1,7 @@
-﻿using Consul;
+﻿using System.Net.Sockets;
+using Consul;
 using Flurl;
+using Serilog;
 
 namespace Sphere.Shared;
 
@@ -33,9 +35,18 @@ public static class Services
 
     public static async Task<WriteResult> UnregisterService(AgentServiceRegistration registration, CancellationToken token = default)
     {
-        return client is null
-            ? throw new Exception($"{registration.Name} service was never registered, or client was set to null")
-            : await client.Agent.ServiceDeregister(registration.ID, token);
+        try
+        {
+            return client is null
+                ? throw new Exception($"{registration.Name} service was never registered, or client was set to null")
+                : await client.Agent.ServiceDeregister(registration.ID, token);
+        }
+        catch (SocketException sockEx)
+        {
+            Log.Fatal(sockEx, "Error while unregistering service: {Registration}", registration);
+            throw;
+        }
+
     }
 }
 
@@ -53,8 +64,9 @@ public record ServiceDefinition(string Name, string Scheme, string Host, int Por
         Name = Name,
         Check = new()
         {
-            HTTP = $"{Address}/health",
+            HTTP = $"https://host.docker.internal:{Port}/health",
             Interval = TimeSpan.FromSeconds(1),
+            TLSSkipVerify = true,
         },
     };
 }

@@ -1,5 +1,8 @@
 ﻿using Microsoft.Extensions.Hosting;
 using Serilog;
+using Serilog.Formatting.Json;
+using Serilog.Sinks.Kafka;
+using Serilog.Sinks.Kafka.Options;
 
 namespace Sphere.Shared;
 
@@ -8,7 +11,9 @@ public static class SphericalLogger
     public static ILogger SetupLogger()
     {
         return new LoggerConfiguration()
-            .WriteTo.Console()
+            .WriteTo.Kafka(
+                new JsonFormatter(),
+                new KafkaOptions(new List<string> { "localhost:9094" }, "Logs-sphere"))
             .CreateBootstrapLogger();
     }
 

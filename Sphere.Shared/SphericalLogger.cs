@@ -1,27 +1,40 @@
 ﻿using Microsoft.Extensions.Hosting;
 using Serilog;
-using Serilog.Formatting.Json;
-using Serilog.Sinks.Kafka;
-using Serilog.Sinks.Kafka.Options;
 
 namespace Sphere.Shared;
 
 public static class SphericalLogger
 {
-    public static ILogger SetupLogger()
+    public static void SetupLogger(HostBuilderContext context, IServiceProvider services, LoggerConfiguration configuration)
     {
-        return new LoggerConfiguration()
-            .WriteTo.Kafka(
-                new JsonFormatter(),
-                new KafkaOptions(new List<string> { "localhost:9094" }, "Logs-sphere"))
-            .CreateBootstrapLogger();
+        configuration = GetLoggerConfiguration()
+            .ReadFrom.Configuration(context.Configuration)
+            .ReadFrom.Services(services);
     }
 
-    public static void ConfigureLogger(HostBuilderContext context, LoggerConfiguration configuration)
+    public static ILogger StartupLogger(string serviceName)
     {
-        configuration
-            .WriteTo.Console(outputTemplate: "[{Timestamp:HH:mm:ss} {Level}] {SourceContext}{Message:lj}{NewLine}{Exception}{NewLine}")
-            .Enrich.FromLogContext()
-            .ReadFrom.Configuration(context.Configuration);
+        var logger = GetLoggerConfiguration().CreateBootstrapLogger();
+
+        Log.ForContext(LogContexts.ApplicationName, serviceName);
+
+        Log.Information("Starting up: {Name}", serviceName);
+
+        return logger;
     }
+
+    public static LoggerConfiguration GetLoggerConfiguration()
+    {
+        return new LoggerConfiguration()
+            .WriteTo.Console(outputTemplate: "[{Timestamp:HH:mm:ss} {Level}] {SourceContext} {Message:lj}{NewLine}{Exception}{NewLine}")
+            //            .WriteTo.Kafka(
+            //                new JsonFormatter(),
+            //                new KafkaOptions(new List<string> { "localhost:9094" }, "Logs-sphere"))
+            .Enrich.FromLogContext();
+    }
+}
+
+public static class LogContexts
+{
+    public const string ApplicationName = nameof(ApplicationName);
 }
